@@ -35,7 +35,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
   font-size: 0.85rem;
 }
 
@@ -67,8 +68,9 @@
   font-size: 0.85rem;
   padding: 0.25rem 0.5rem;
   background: rgba(148, 163, 184, 0.1);
-  color: inherit;
+  color: #e5e7eb; /* ← 追加：常に読みやすい明るめの文字色 */
 }
+
 
 .psm-panel-header-controls select {
   min-width: 100px;
@@ -82,6 +84,13 @@
 .psm-panel-header-controls button {
   cursor: pointer;
 }
+
+/* ソートなどのセレクトのドロップダウン内の文字色・背景 */
+.psm-panel-header-controls select option {
+  background-color: #020617;
+  color: #e5e7eb;
+}
+
 
 .psm-panel-body {
   padding: 0.5rem;
@@ -125,7 +134,7 @@
   font-size: 0.75rem;
 }
 
-/* Preview tooltip on hover */
+/* デフォルト: 上側に出す */
 .psm-snippet[data-preview]:hover::after {
   content: attr(data-preview);
   position: absolute;
@@ -158,3 +167,32 @@
   z-index: 1000001;
 }
 
+/* 一番上のカードだけは下側に出す */
+.psm-snippet.psm-snippet--top[data-preview]:hover::after {
+  top: 100%;
+  bottom: auto;
+  margin-top: 6px;
+  margin-bottom: 0;
+}
+
+.psm-snippet.psm-snippet--top[data-preview]:hover::before {
+  top: 100%;
+  bottom: auto;
+  margin-top: 2px;
+  margin-bottom: 0;
+  border-color: #020617 transparent transparent transparent;
+}
+
+.psm-snippet-locked {
+  opacity: 0.4;
+  pointer-events: auto; /* クリックは許可して alert を出す */
+}
+
+.psm-pro-badge {
+  margin-left: 6px;
+  padding: 2px 6px;
+  font-size: 10px;
+  border-radius: 6px;
+  background: rgba(37, 99, 235, 0.18);
+  color: #3b82f6;
+}

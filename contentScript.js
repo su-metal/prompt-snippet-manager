@@ -8,8 +8,12 @@ const PSM_STORAGE_KEY = "promptSnippets";
   let currentCategoryFilter = "";
   let searchQuery = "";
   let favoritesOnly = false;
+  let sortType = "lastUsedDesc";
   let lastEditorEl = null;
   let lastEditorRange = null;
+
+  const FREE_SNIPPET_LIMIT = 5; // Free のパネル表示上限
+  const IS_PRO = true; // ★ Free/Pro 切替（popup と揃える）
 
   function init() {
     if (buttonEl) return;
@@ -121,12 +125,34 @@ const PSM_STORAGE_KEY = "promptSnippets";
     favButton.id = "psm-fav-filter";
     favButton.textContent = "★ All";
 
+    const sortSelect = document.createElement("select");
+    sortSelect.id = "psm-sort-select";
+
+    const optLastUsed = document.createElement("option");
+    optLastUsed.value = "lastUsedDesc";
+    optLastUsed.textContent = "Last used";
+
+    const optTitleAsc = document.createElement("option");
+    optTitleAsc.value = "titleAsc";
+    optTitleAsc.textContent = "Title (A-Z)";
+
+    const optFavFirst = document.createElement("option");
+    optFavFirst.value = "favoriteFirst";
+    optFavFirst.textContent = "Fav first";
+
+    sortSelect.appendChild(optLastUsed);
+    sortSelect.appendChild(optTitleAsc);
+    sortSelect.appendChild(optFavFirst);
+
+    sortSelect.value = sortType;
+
     const closeButton = document.createElement("button");
     closeButton.textContent = "×";
 
     controls.appendChild(categorySelect);
     controls.appendChild(searchInput);
     controls.appendChild(favButton);
+    controls.appendChild(sortSelect);
     controls.appendChild(closeButton);
 
     header.appendChild(title);
@@ -154,6 +180,11 @@ const PSM_STORAGE_KEY = "promptSnippets";
     favButton.addEventListener("click", () => {
       favoritesOnly = !favoritesOnly;
       favButton.textContent = favoritesOnly ? "★ Fav" : "★ All";
+      renderPanelBody();
+    });
+
+    sortSelect.addEventListener("change", (e) => {
+      sortType = e.target.value;
       renderPanelBody();
     });
 
@@ -243,23 +274,63 @@ const PSM_STORAGE_KEY = "promptSnippets";
       return;
     }
 
-    filtered.forEach((s) => {
+    // ▼ 追加：フィルタ結果を並び替え
+    const sorted = filtered.slice().sort((a, b) => {
+      // タイトルは未定義ガード
+      const titleA = (a.title || "").toLowerCase();
+      const titleB = (b.title || "").toLowerCase();
+      const favA = !!a.favorite;
+      const favB = !!b.favorite;
+      const lastUsedA = typeof a.lastUsedAt === "number" ? a.lastUsedAt : 0;
+      const lastUsedB = typeof b.lastUsedAt === "number" ? b.lastUsedAt : 0;
+
+      switch (sortType) {
+        case "titleAsc":
+          if (titleA < titleB) return -1;
+          if (titleA > titleB) return 1;
+          return 0;
+
+        case "favoriteFirst":
+          if (favA !== favB) {
+            return favA ? -1 : 1; // true を上へ
+          }
+          // 同じグループ内では lastUsedDesc でソート
+          return lastUsedB - lastUsedA;
+
+        case "lastUsedDesc":
+        default:
+          // lastUsedAt が新しいものを上に
+          return lastUsedB - lastUsedA;
+      }
+    });
+
+    // ★ Free のときは 5 件だけ表示、Pro のときは全件
+    const displayList = IS_PRO ? sorted : sorted.slice(0, FREE_SNIPPET_LIMIT);
+
+    displayList.forEach((s, idx) => {
       const item = document.createElement("div");
       item.className = "psm-snippet";
+
+      // ★ 一番上のカードだけ下向きツールチップ
+      if (idx === 0) {
+        item.classList.add("psm-snippet--top");
+      }
 
       // ★ プレビュー文字列を作成して data 属性と title にセット
       const preview = buildPreview(s.body || "");
       if (preview) {
         item.dataset.preview = preview;
-        item.title = preview; // ブラウザ標準のツールチップも一応使う
+        item.title = preview;
       }
 
       const titleEl = document.createElement("div");
       titleEl.className = "psm-snippet-title";
       titleEl.textContent = s.title + (s.favorite ? " ★" : "");
+
       const metaEl = document.createElement("div");
       metaEl.className = "psm-snippet-meta";
       metaEl.textContent = s.category || "";
+
       const tagsEl = document.createElement("div");
       tagsEl.className = "psm-snippet-tags";
       if (s.tags && s.tags.length > 0) {
@@ -272,7 +343,6 @@ const PSM_STORAGE_KEY = "promptSnippets";
       item.appendChild(metaEl);
       item.appendChild(tagsEl);
 
-      // ★ ここを変更：クリック時にテンプレート変数を展開してから挿入
       item.addEventListener("click", () => {
         const filled = fillTemplate(s.body);
         if (filled !== null) {

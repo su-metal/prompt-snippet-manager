@@ -2,6 +2,8 @@ const PSM_STORAGE_KEY = "promptSnippets";
 const FREE_SNIPPET_LIMIT = 5; // Free plan limit
 const MAX_FREE_PLACEHOLDER_NAMES = 1; // Free: 1 distinct placeholder name per snippet
 
+const IS_PRO = true;
+
 let snippets = [];
 let filteredSnippets = [];
 let currentSearch = "";
@@ -25,6 +27,44 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const snippetList = document.getElementById("snippetList");
   const snippetCount = document.getElementById("snippetCount");
+
+  // ====== Drag & Drop sort ======
+  let sortableInstance = null;
+
+  function enableDragSort() {
+    // すでに有効なら二重初期化しない
+    if (sortableInstance) return;
+    if (!snippetList) return;
+    if (typeof Sortable === "undefined") return;
+
+    sortableInstance = new Sortable(snippetList, {
+      animation: 120,
+      onEnd: function () {
+        // 並べ替え後の順番で snippets を並び替えて保存
+        const items = Array.from(snippetList.children);
+        const idOrder = items.map((li) => li.getAttribute("data-id"));
+
+        const newOrder = [];
+        idOrder.forEach((id) => {
+          const sn = snippets.find((s) => s.id === id);
+          if (sn) newOrder.push(sn);
+        });
+
+        // 見つからなかったものも一応末尾に保持
+        snippets.forEach((sn) => {
+          if (!newOrder.includes(sn)) newOrder.push(sn);
+        });
+
+        snippets = newOrder;
+
+        saveSnippetsToStorage().then(() => {
+          applyFilters();
+          renderCategoryFilter();
+          renderList();
+        });
+      },
+    });
+  }
 
   const addPlaceholderBtn = document.getElementById("addPlaceholderBtn");
 
@@ -251,7 +291,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const template = document.getElementById("snippetItemTemplate");
-    filteredSnippets.forEach((snippet) => {
+    filteredSnippets.forEach((snippet, index) => {
       const clone = template.content.cloneNode(true);
       const li = clone.querySelector(".snippet-item");
       const titleEl = clone.querySelector(".snippet-title");
@@ -260,6 +300,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const placeholdersEl = clone.querySelector(".snippet-placeholders");
       const editBtn = clone.querySelector(".edit-btn");
       const deleteBtn = clone.querySelector(".delete-btn");
+
+      // ★ 並び替え後に ID で順番を復元するため、data-id を付ける
+      li.setAttribute("data-id", snippet.id);
 
       titleEl.textContent = snippet.title || "(Untitled)";
       if (snippet.favorite) {
@@ -287,10 +330,37 @@ document.addEventListener("DOMContentLoaded", () => {
         placeholdersEl.style.display = "none";
       }
 
-      editBtn.addEventListener("click", () => {
-        startEditing(snippet.id);
-      });
+      // ★ Free モードでは 5件目以降をロック扱いにする
+      const isLocked = !IS_PRO && index >= FREE_SNIPPET_LIMIT;
 
+      if (isLocked) {
+        // 見た目用クラス（CSS 側で半透明などにする想定）
+        li.classList.add("snippet-item-locked");
+
+        // タイトル横に Pro バッジを追加
+        const headerEl = li.querySelector(".snippet-header");
+        if (headerEl) {
+          const proBadge = document.createElement("span");
+          proBadge.className = "snippet-pro-badge";
+          proBadge.textContent = "Pro";
+          headerEl.appendChild(proBadge);
+        }
+
+        // Edit ボタンは編集ではなく Upgrade 誘導にする
+        editBtn.textContent = "Upgrade";
+        editBtn.addEventListener("click", () => {
+          showLimitError(
+            `In the Free plan you can actively use up to ${FREE_SNIPPET_LIMIT} snippets.\nUpgrade to unlock and use all saved snippets.`
+          );
+        });
+      } else {
+        // 通常の Edit 挙動
+        editBtn.addEventListener("click", () => {
+          startEditing(snippet.id);
+        });
+      }
+
+      // Delete は常に有効（ロックされていても削除はできる）
       deleteBtn.addEventListener("click", () => {
         if (
           confirm(
@@ -314,6 +384,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       snippetList.appendChild(clone);
     });
+    // ★ リスト描画が終わったら、ドラッグ＆ドロップを有効化
+    enableDragSort();
   }
 
   // ====== Editing ======
@@ -358,19 +430,21 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // 1) Free plan placeholder limit check
-    const placeholderCheck = validateFreePlaceholderLimit(body);
-    if (!placeholderCheck.ok) {
-      const names = placeholderCheck.names;
-      const usedList = names.map((n) => `"${n}"`).join(", ");
-      showLimitError(
-        `Free plan supports 1 placeholder per snippet.\nThis snippet uses: ${usedList}.\nKeep one, or upgrade to use multiple placeholders.`
-      );
-      return;
+    // 1) Free plan placeholder limit check（Pro ではスキップ）
+    if (!IS_PRO) {
+      const placeholderCheck = validateFreePlaceholderLimit(body);
+      if (!placeholderCheck.ok) {
+        const names = placeholderCheck.names;
+        const usedList = names.map((n) => `"${n}"`).join(", ");
+        showLimitError(
+          `Free plan supports 1 placeholder per snippet.\nThis snippet uses: ${usedList}.\nKeep one, or upgrade to use multiple placeholders.`
+        );
+        return;
+      }
     }
 
-    // 2) Free plan snippet count limit (only for new snippets)
-    if (!editingId) {
+    // 2) Free plan snippet count limit (only for new snippets, and only if not Pro)
+    if (!editingId && !IS_PRO) {
       if (snippets.length >= FREE_SNIPPET_LIMIT) {
         showLimitError(
           `Free plan limit reached (${FREE_SNIPPET_LIMIT} snippets).\nDelete an existing snippet or upgrade to add more.`
