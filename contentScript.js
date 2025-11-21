@@ -15,7 +15,7 @@ const PSM_STORAGE_KEY = "promptSnippets";
     buttonEl = document.createElement("button");
     buttonEl.className = "psm-floating-button";
     buttonEl.title = "Prompt Snippet Manager";
-    buttonEl.textContent = "✏️";
+    buttonEl.textContent = "✂";
     buttonEl.addEventListener("click", togglePanel);
 
     document.body.appendChild(buttonEl);
@@ -112,7 +112,6 @@ const PSM_STORAGE_KEY = "promptSnippets";
 
     document.body.appendChild(panelEl);
 
-    // events
     categorySelect.addEventListener("change", (e) => {
       currentCategoryFilter = e.target.value;
       renderPanelBody();
@@ -226,8 +225,12 @@ const PSM_STORAGE_KEY = "promptSnippets";
       item.appendChild(metaEl);
       item.appendChild(tagsEl);
 
+      // ★ ここを変更：クリック時にテンプレート変数を展開してから挿入
       item.addEventListener("click", () => {
-        insertIntoChatGPT(s.body);
+        const filled = fillTemplate(s.body);
+        if (filled !== null) {
+          insertIntoChatGPT(filled);
+        }
       });
 
       body.appendChild(item);
@@ -235,34 +238,87 @@ const PSM_STORAGE_KEY = "promptSnippets";
   }
 
   function findChatGPTTextarea() {
-    // ChatGPT の入力欄をできるだけ広く探す
     const selectors = [
       'textarea[placeholder*="Send a message"]',
       'textarea[placeholder*="Message ChatGPT"]',
       'textarea[placeholder*="メッセージを入力"]',
       'textarea[placeholder*="メッセージを送信"]',
+      'textarea[placeholder*="message"]',
       'textarea[data-id="root"]',
-      "form textarea",
+      'textarea[data-id="prompt-textarea"]',
+      'textarea[role="textbox"]',
+      '#prompt-textarea',
+      'form textarea',
       'div[contenteditable="true"][data-testid="textbox"]',
+      'div[contenteditable="true"][role="textbox"]',
+      'div[contenteditable="true"][data-lexical-editor]',
+      'div[contenteditable="true"][data-message-editor="true"]',
       'div[contenteditable="true"]',
     ];
 
     for (const sel of selectors) {
-      const el = document.querySelector(sel);
-      if (el) return el;
+      const match = getCandidatesFromSelector(sel);
+      if (match.length > 0) {
+        return match[0];
+      }
     }
 
-    return null;
+    const fallbacks = [
+      ...getCandidatesFromSelector("textarea"),
+      ...getCandidatesFromSelector('div[contenteditable="true"]'),
+    ];
+
+    return fallbacks[0] || null;
   }
+
+  function getCandidatesFromSelector(selector) {
+    return Array.from(document.querySelectorAll(selector)).filter(isUsableInput);
+  }
+
+  // ===== プレースホルダ処理ここから =====
+
+  // スニペット本文から {{name}} のプレースホルダ名一覧を抽出
+  function extractPlaceholders(template) {
+    const regex = /{{\s*([^\{\}\s]+)\s*}}/g;
+    const names = new Set();
+    let match;
+    while ((match = regex.exec(template)) !== null) {
+      names.add(match[1]);
+    }
+    return Array.from(names);
+  }
+
+  // プレースホルダごとに prompt で聞いて、埋め込み済み文字列を返す
+  // キャンセルされたら null を返す
+  function fillTemplate(template) {
+    const placeholders = extractPlaceholders(template);
+    if (placeholders.length === 0) {
+      return template;
+    }
+
+    let filled = template;
+    for (const name of placeholders) {
+      const value = window.prompt(`「${name}」に入れる内容を入力してください:`, "");
+      if (value === null) {
+        // キャンセルされたら挿入自体を中止
+        return null;
+      }
+      const regex = new RegExp(`{{\\s*${name}\\s*}}`, "g");
+      filled = filled.replace(regex, value);
+    }
+
+    return filled;
+  }
+
+  // ===== プレースホルダ処理ここまで =====
 
   function insertIntoChatGPT(text) {
     const inputEl = findChatGPTTextarea();
     if (!inputEl) {
-      alert("ChatGPT の入力欄が見つかりませんでした。");
+      alert("ChatGPT input area not found.");
       return;
     }
 
-    // textarea の場合（今の ChatGPT はこちらが多い）
     if (inputEl.tagName.toLowerCase() === "textarea") {
       const start = inputEl.selectionStart ?? inputEl.value.length;
       const end = inputEl.selectionEnd ?? inputEl.value.length;
@@ -270,18 +326,7 @@ const PSM_STORAGE_KEY = "promptSnippets";
       const after = inputEl.value.slice(end);
       const newValue = before + text + after;
 
-      // React 対応：value セッターを直接呼ぶ
-      const prototype = window.HTMLTextAreaElement.prototype;
-      const valueSetter = Object.getOwnPropertyDescriptor(
-        prototype,
-        "value"
-      )?.set;
-      if (valueSetter) {
-        valueSetter.call(inputEl, newValue);
-      } else {
-        inputEl.value = newValue;
-      }
-
+      setNativeValue(inputEl, newValue);
       inputEl.dispatchEvent(new Event("input", { bubbles: true }));
       inputEl.focus();
       const cursorPos = before.length + text.length;
@@ -289,20 +334,63 @@ const PSM_STORAGE_KEY = "promptSnippets";
       return;
     }
 
-    // contenteditable な場合（保険）
     if (inputEl.isContentEditable) {
       inputEl.focus();
       const selection = window.getSelection();
-      if (!selection) {
-        document.execCommand("insertText", false, text);
-        return;
+      let range =
+        selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+
+      if (!range || !inputEl.contains(range.commonAncestorContainer)) {
+        range = document.createRange();
+        range.selectNodeContents(inputEl);
+        range.collapse(false);
       }
-      selection.removeAllRanges();
-      const range = document.createRange();
-      range.selectNodeContents(inputEl);
-      range.collapse(false); // 一番最後
-      selection.addRange(range);
-      document.execCommand("insertText", false, text);
+
+      range.deleteContents();
+      const textNode = document.createTextNode(text);
+      range.insertNode(textNode);
+
+      range.setStartAfter(textNode);
+      range.setEndAfter(textNode);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+
+      const inputEvent =
+        typeof InputEvent !== "undefined"
+          ? new InputEvent("input", {
+              bubbles: true,
+              data: text,
+              inputType: "insertText",
+            })
+          : new Event("input", { bubbles: true });
+      inputEl.dispatchEvent(inputEvent);
+    }
+  }
+
+  function isUsableInput(el) {
+    if (!el) return false;
+    if (el.getAttribute("aria-hidden") === "true") return false;
+    const style = window.getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden") {
+      return false;
+    }
+    if (el instanceof HTMLTextAreaElement || el.isContentEditable) {
+      return el.getClientRects().length > 0 || el.offsetHeight > 0;
+    }
+    return false;
+  }
+
+  function setNativeValue(element, value) {
+    const nativePrototype = Object.getPrototypeOf(element);
+    const descriptor =
+      (nativePrototype && Object.getOwnPropertyDescriptor(nativePrototype, "value")) ||
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value") ||
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+    const setter = descriptor?.set;
+    if (setter) {
+      setter.call(element, value);
+    } else {
+      element.value = value;
     }
   }
 
