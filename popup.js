@@ -357,12 +357,17 @@ document.addEventListener("DOMContentLoaded", () => {
           );
         });
       } else {
-        // 通常の Edit 挙動
+        // 通常の Edit 挙動 ＋ クリック時の軽いアニメーション
         editBtn.addEventListener("click", () => {
+          // ボタンに一瞬だけアクティブクラスを付けてアニメーション
+          editBtn.classList.add("edit-btn-active");
+          setTimeout(() => {
+            editBtn.classList.remove("edit-btn-active");
+          }, 180);
+
           startEditing(snippet.id);
         });
       }
-
       // Delete は常に有効（ロックされていても削除はできる）
       deleteBtn.addEventListener("click", () => {
         if (
@@ -405,12 +410,35 @@ document.addEventListener("DOMContentLoaded", () => {
   function startEditing(id) {
     const snippet = snippets.find((s) => s.id === id);
     if (!snippet) return;
+
     titleInput.value = snippet.title || "";
     categoryInput.value = snippet.category || "";
     tagsInput.value = (snippet.tags || []).join(", ");
     bodyInput.value = snippet.body || "";
     favoriteInput.checked = !!snippet.favorite;
     editingIdInput.value = snippet.id;
+
+    // ★ まずはポップアップ全体を一番上までスムーズスクロール
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+
+    // 少し待ってから、スクロール位置を 0 に固定＋フォーカス
+    setTimeout(() => {
+      // 最終的に確実にトップに合わせる
+      window.scrollTo(0, 0);
+
+      // フォーカス時にスクロールが動かないようにしてタイトルへフォーカス
+      if (titleInput.focus) {
+        try {
+          titleInput.focus({ preventScroll: true });
+        } catch (e) {
+          // 古いブラウザ用フォールバック
+          titleInput.focus();
+        }
+      }
+    }, 400);
   }
 
   // ====== Save logic (with Free plan limits) ======

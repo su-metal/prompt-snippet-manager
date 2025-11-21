@@ -412,3 +412,14 @@ button {
   background: rgba(37, 99, 235, 0.12);
   color: #1d4ed8;
 }
+/* Edit ボタンの通常時にトランジションを付与 */
+.edit-btn {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+/* クリック時に少し沈むようなアニメーション */
+.edit-btn-active {
+  transform: translateY(1px) scale(0.97);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  opacity: 0.85;
+}
