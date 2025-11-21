@@ -8,6 +8,8 @@ const PSM_STORAGE_KEY = "promptSnippets";
   let currentCategoryFilter = "";
   let searchQuery = "";
   let favoritesOnly = false;
+  let lastEditorEl = null;
+  let lastEditorRange = null;
 
   function init() {
     if (buttonEl) return;
@@ -21,6 +23,11 @@ const PSM_STORAGE_KEY = "promptSnippets";
     document.body.appendChild(buttonEl);
 
     loadSnippets();
+    document.addEventListener(
+      "selectionchange",
+      handleEditorSelectionChange,
+      true
+    );
     chrome.storage.sync.onChanged.addListener(handleStorageChange);
   }
 
@@ -41,6 +48,28 @@ const PSM_STORAGE_KEY = "promptSnippets";
         renderCategorySelect();
       }
     });
+  }
+
+  function handleEditorSelectionChange() {
+    const active = document.activeElement;
+    if (!active) return;
+
+    // textarea か contenteditable が対象
+    const isTextArea = active instanceof HTMLTextAreaElement;
+    const isEditable = active.isContentEditable;
+
+    if (!isTextArea && !isEditable) return;
+    if (!isUsableInput(active)) return;
+
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+
+    const range = sel.getRangeAt(0);
+    // 選択範囲がアクティブ要素の外なら無視
+    if (!active.contains(range.commonAncestorContainer)) return;
+
+    lastEditorEl = active;
+    lastEditorRange = range.cloneRange();
   }
 
   function togglePanel() {
@@ -186,6 +215,16 @@ const PSM_STORAGE_KEY = "promptSnippets";
     return true;
   }
 
+  function buildPreview(body) {
+    if (!body) return "";
+    // 改行をスペースに変換して、連続空白を1つに
+    const normalized = body.replace(/\s+/g, " ").trim();
+    if (!normalized) return "";
+    const maxLength = 120; // 好きな長さに調整OK
+    if (normalized.length <= maxLength) return normalized;
+    return normalized.slice(0, maxLength) + "…";
+  }
+
   function renderPanelBody() {
     if (!panelEl) return;
     const body = panelEl.querySelector("#psm-panel-body");
@@ -207,6 +246,14 @@ const PSM_STORAGE_KEY = "promptSnippets";
     filtered.forEach((s) => {
       const item = document.createElement("div");
       item.className = "psm-snippet";
+
+      // ★ プレビュー文字列を作成して data 属性と title にセット
+      const preview = buildPreview(s.body || "");
+      if (preview) {
+        item.dataset.preview = preview;
+        item.title = preview; // ブラウザ標準のツールチップも一応使う
+      }
+
       const titleEl = document.createElement("div");
       titleEl.className = "psm-snippet-title";
       titleEl.textContent = s.title + (s.favorite ? " ★" : "");
@@ -247,8 +294,8 @@ const PSM_STORAGE_KEY = "promptSnippets";
       'textarea[data-id="root"]',
       'textarea[data-id="prompt-textarea"]',
       'textarea[role="textbox"]',
-      '#prompt-textarea',
-      'form textarea',
+      "#prompt-textarea",
+      "form textarea",
       'div[contenteditable="true"][data-testid="textbox"]',
       'div[contenteditable="true"][role="textbox"]',
       'div[contenteditable="true"][data-lexical-editor]',
@@ -272,7 +319,9 @@ const PSM_STORAGE_KEY = "promptSnippets";
   }
 
   function getCandidatesFromSelector(selector) {
-    return Array.from(document.querySelectorAll(selector)).filter(isUsableInput);
+    return Array.from(document.querySelectorAll(selector)).filter(
+      isUsableInput
+    );
   }
 
   // ===== プレースホルダ処理ここから =====
@@ -298,7 +347,10 @@ const PSM_STORAGE_KEY = "promptSnippets";
 
     let filled = template;
     for (const name of placeholders) {
-      const value = window.prompt(`「${name}」に入れる内容を入力してください:`, "");
+      const value = window.prompt(
+        `「${name}」に入れる内容を入力してください:`,
+        ""
+      );
       if (value === null) {
         // キャンセルされたら挿入自体を中止
         return null;
@@ -335,26 +387,47 @@ const PSM_STORAGE_KEY = "promptSnippets";
     }
 
     if (inputEl.isContentEditable) {
-      inputEl.focus();
+      // 直前に保存しておいた選択範囲を優先して使う
+      let range = null;
       const selection = window.getSelection();
-      let range =
-        selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
 
-      if (!range || !inputEl.contains(range.commonAncestorContainer)) {
+      if (lastEditorEl === inputEl && lastEditorRange) {
+        // 編集していたエディタと一致していれば、その range を復元
+        range = lastEditorRange.cloneRange();
+      } else if (
+        selection &&
+        selection.rangeCount > 0 &&
+        inputEl.contains(selection.getRangeAt(0).commonAncestorContainer)
+      ) {
+        // まだエディタ内の選択が有効ならそれを使用
+        range = selection.getRangeAt(0).cloneRange();
+      }
+
+      // それでも range が無ければ、末尾に挿入（フォールバック）
+      if (!range) {
         range = document.createRange();
         range.selectNodeContents(inputEl);
         range.collapse(false);
       }
 
+      inputEl.focus();
+
+      // 選択範囲にテキストを挿入
       range.deleteContents();
       const textNode = document.createTextNode(text);
       range.insertNode(textNode);
 
+      // キャレットを挿入したテキストの後ろに移動
       range.setStartAfter(textNode);
       range.setEndAfter(textNode);
-      selection?.removeAllRanges();
-      selection?.addRange(range);
 
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+
+      // ChatGPT 側に変更を伝える input イベント
       const inputEvent =
         typeof InputEvent !== "undefined"
           ? new InputEvent("input", {
@@ -364,6 +437,10 @@ const PSM_STORAGE_KEY = "promptSnippets";
             })
           : new Event("input", { bubbles: true });
       inputEl.dispatchEvent(inputEvent);
+
+      // 次回用に range を保存しておく
+      lastEditorEl = inputEl;
+      lastEditorRange = range.cloneRange();
     }
   }
 
@@ -383,7 +460,8 @@ const PSM_STORAGE_KEY = "promptSnippets";
   function setNativeValue(element, value) {
     const nativePrototype = Object.getPrototypeOf(element);
     const descriptor =
-      (nativePrototype && Object.getOwnPropertyDescriptor(nativePrototype, "value")) ||
+      (nativePrototype &&
+        Object.getOwnPropertyDescriptor(nativePrototype, "value")) ||
       Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value") ||
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
     const setter = descriptor?.set;

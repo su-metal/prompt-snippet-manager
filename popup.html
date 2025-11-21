@@ -6,40 +6,95 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <header>
-    <h1>Prompt Snippets</h1>
-  </header>
+  <div class="popup-root">
+    <header class="app-header">
+      <div class="app-title">
+        <span class="app-title-main">Prompt Snippets</span>
+        <span class="app-title-sub">Save & reuse your best prompts</span>
+      </div>
+    </header>
 
-  <section id="editor">
-    <input id="title" type="text" placeholder="Title" />
-    <input id="category" type="text" placeholder="Category (e.g. Email, Coding)" />
-    <input id="tags" type="text" placeholder="Tags (comma separated)" />
-    <label class="favorite-row">
-      <input id="favorite" type="checkbox" />
-      Favorite
-    </label>
-    <textarea id="body" rows="5" placeholder="Prompt body..."></textarea>
-    <div class="actions">
-      <button id="saveBtn">Save</button>
-      <button id="clearBtn" class="secondary">Clear</button>
-    </div>
-    <input type="hidden" id="editingId" />
-  </section>
+    <main class="app-main">
+      <!-- Editor card -->
+      <section id="editor" class="card card-editor">
+        <div class="field">
+          <label for="title" class="field-label">Title</label>
+          <input id="title" type="text" placeholder="e.g. Bug report, Code review, Research" />
+        </div>
 
-  <section id="filter">
-    <input id="search" type="text" placeholder="Search by title, tags, or body" />
-    <select id="categoryFilter">
-      <option value="">All categories</option>
-    </select>
-    <label class="favorite-row">
-      <input id="favoriteFilter" type="checkbox" />
-      Favorites only
-    </label>
-  </section>
+        <div class="field-inline">
+          <div class="field">
+            <label for="category" class="field-label">Category</label>
+            <input id="category" type="text" placeholder="e.g. Email, Coding" />
+          </div>
+          <div class="field">
+            <label for="tags" class="field-label">Tags</label>
+            <input id="tags" type="text" placeholder="Comma separated" />
+          </div>
+        </div>
 
-  <section id="list">
-    <ul id="snippetList"></ul>
-  </section>
+        <label class="favorite-row">
+          <input id="favorite" type="checkbox" />
+          <span>Mark as favorite</span>
+        </label>
+
+        <div class="field">
+          <label for="body" class="field-label">Prompt body</label>
+          <textarea id="body" rows="5" placeholder="Write the prompt you want to reuse..."></textarea>
+        </div>
+
+        <div class="placeholder-help">
+          <div class="placeholder-help-row">
+            <span class="placeholder-icon">🧩</span>
+            <span class="placeholder-title">Template with blanks</span>
+            <button type="button" id="addPlaceholderBtn" class="btn-chip">+ Add placeholder</button>
+          </div>
+          <div class="placeholder-note">
+            Example: <code>{{topic}} to research</code><br />
+            When you use this snippet, you will be asked to fill <span class="code-inline">"topic"</span>.
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="saveBtn" class="btn-primary">Save snippet</button>
+          <button id="clearBtn" class="btn-ghost">Clear</button>
+        </div>
+
+        <input type="hidden" id="editingId" />
+      </section>
+
+      <!-- Filter card -->
+      <section id="filter" class="card card-filter">
+        <div class="field">
+          <label for="search" class="field-label">Search</label>
+          <input id="search" type="text" placeholder="Search by title, tags, or body" />
+        </div>
+
+        <div class="filter-row">
+          <div class="field">
+            <label for="categoryFilter" class="field-label">Category</label>
+            <select id="categoryFilter">
+              <option value="">All categories</option>
+            </select>
+          </div>
+
+          <label class="favorite-row favorite-filter">
+            <input id="favoriteFilter" type="checkbox" />
+            <span>Favorites only</span>
+          </label>
+        </div>
+      </section>
+
+      <!-- List card -->
+      <section id="list" class="card card-list">
+        <div class="list-header">
+          <span class="list-title">Saved snippets</span>
+          <span class="list-count" id="snippetCount"></span>
+        </div>
+        <ul id="snippetList"></ul>
+      </section>
+    </main>
+  </div>
 
   <template id="snippetItemTemplate">
     <li class="snippet-item">
@@ -49,6 +104,7 @@
           <span class="snippet-category"></span>
         </div>
         <div class="snippet-tags"></div>
+        <div class="snippet-placeholders"></div>
       </div>
       <div class="snippet-actions">
         <button class="edit-btn">Edit</button>

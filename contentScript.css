@@ -96,6 +96,7 @@
   border: 1px solid rgba(148, 163, 184, 0.5);
   cursor: pointer;
   font-size: 0.85rem;
+  position: relative;
 }
 
 .psm-snippet:hover {
@@ -123,3 +124,37 @@
 .psm-snippet-tags {
   font-size: 0.75rem;
 }
+
+/* Preview tooltip on hover */
+.psm-snippet[data-preview]:hover::after {
+  content: attr(data-preview);
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  margin-bottom: 6px;
+  padding: 0.4rem 0.5rem;
+  background: #020617;
+  color: #e5e7eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.7);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  white-space: normal;
+  max-height: 6.2em;
+  overflow: hidden;
+  z-index: 1000000;
+}
+
+.psm-snippet[data-preview]:hover::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  bottom: 100%;
+  margin-bottom: 2px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: transparent transparent #020617 transparent;
+  z-index: 1000001;
+}
+
