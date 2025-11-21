@@ -32,6 +32,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let sortableInstance = null;
 
   function enableDragSort() {
+    // ★ Pro 以外ではドラッグ並び替えを無効化
+    if (!IS_PRO) return;
+
     // すでに有効なら二重初期化しない
     if (sortableInstance) return;
     if (!snippetList) return;
