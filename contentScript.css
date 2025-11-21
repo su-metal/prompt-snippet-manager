@@ -1,0 +1,119 @@
+.psm-floating-button {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 999999;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: none;
+  background: #2563eb;
+  color: white;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.25);
+  cursor: pointer;
+}
+
+.psm-floating-button:hover {
+  filter: brightness(1.05);
+}
+
+.psm-panel {
+  position: fixed;
+  bottom: 90px;
+  right: 20px;
+  width: 420px;     /* ← 320px → 420px に拡大 */
+  max-height: 75vh; /* ← 60vh → 75vh に拡大 */
+  background: #0b1120;
+  color: #e5e7eb;
+  border-radius: 0.75rem;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.6);
+  z-index: 999999;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.psm-panel-header {
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.4);
+}
+
+.psm-panel-header-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.psm-panel-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;            /* ← 隙間を広げる */
+  flex-wrap: wrap;        /* ← 折り返しを許可 */
+}
+
+.psm-panel-header-controls select,
+.psm-panel-header-controls input,
+.psm-panel-header-controls button {
+  border-radius: 999px;
+  border: none;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+}
+
+.psm-panel-header-controls select {
+  min-width: 90px;        /* ← 選択欄を広めに */
+}
+
+.psm-panel-header-controls input {
+  flex-grow: 1;           /* ← 検索欄を広げる */
+  min-width: 140px;
+}
+.psm-panel-header-controls button {
+  cursor: pointer;
+}
+
+.psm-panel-body {
+  padding: 0.5rem;
+  overflow-y: auto;
+}
+
+.psm-snippet {
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.45rem;
+  margin-bottom: 0.35rem;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  cursor: pointer;
+}
+
+.psm-snippet:hover {
+  border-color: #60a5fa;
+}
+
+.psm-snippet-title {
+  font-size: 0.9rem;  /* ← 少し大きく */
+  font-weight: 600;
+}
+
+.psm-snippet-meta {
+  margin-top: 0.1rem;
+  font-size: 0.68rem;
+  color: #9ca3af;
+}
+
+.psm-snippet-tags {
+  margin-top: 0.1rem;
+  font-size: 0.7rem;
+  color: #cbd5f5;
+}
+
+.psm-snippet-meta,
+.psm-snippet-tags {
+  font-size: 0.75rem; /* ← 読みやすく */
+}

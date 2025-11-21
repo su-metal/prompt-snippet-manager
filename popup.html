@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Prompt Snippet Manager</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <h1>Prompt Snippets</h1>
+  </header>
+
+  <section id="editor">
+    <input id="title" type="text" placeholder="Title" />
+    <input id="category" type="text" placeholder="Category (e.g. Email, Coding)" />
+    <input id="tags" type="text" placeholder="Tags (comma separated)" />
+    <label class="favorite-row">
+      <input id="favorite" type="checkbox" />
+      Favorite
+    </label>
+    <textarea id="body" rows="5" placeholder="Prompt body..."></textarea>
+    <div class="actions">
+      <button id="saveBtn">Save</button>
+      <button id="clearBtn" class="secondary">Clear</button>
+    </div>
+    <input type="hidden" id="editingId" />
+  </section>
+
+  <section id="filter">
+    <input id="search" type="text" placeholder="Search by title, tags, or body" />
+    <select id="categoryFilter">
+      <option value="">All categories</option>
+    </select>
+    <label class="favorite-row">
+      <input id="favoriteFilter" type="checkbox" />
+      Favorites only
+    </label>
+  </section>
+
+  <section id="list">
+    <ul id="snippetList"></ul>
+  </section>
+
+  <template id="snippetItemTemplate">
+    <li class="snippet-item">
+      <div class="snippet-main">
+        <div class="snippet-header">
+          <span class="snippet-title"></span>
+          <span class="snippet-category"></span>
+        </div>
+        <div class="snippet-tags"></div>
+      </div>
+      <div class="snippet-actions">
+        <button class="edit-btn">Edit</button>
+        <button class="delete-btn">Delete</button>
+      </div>
+    </li>
+  </template>
+
+  <script src="popup.js"></script>
+</body>
+</html>
